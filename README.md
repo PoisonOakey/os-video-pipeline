@@ -1,4 +1,4 @@
-# DisplayLink Remediation Automation
+# DisplayLink Remediation Automation 🖥️
 
 > An OS-level automation suite to resolve degraded video output, pixelation, and bandwidth throttling when bypassing physical GPU bottlenecks via DisplayLink hardware.
 
