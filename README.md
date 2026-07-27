@@ -92,12 +92,11 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 > - **Security Validation** — enforce hash/signature validation on downloaded binaries before execution
 > - **Idempotent Resilience** — validate exit codes and handle silent DDU failures to prevent pipeline lockups
 
+---
+
 ## ⚙️ CI/CD Pipeline
 
 This project implements a **GitHub Actions** pipeline for automated static analysis. Every push triggers `PSScriptAnalyzer` to lint the PowerShell execution scripts, ensuring robust code quality and error-free remediation deployments.
 
 ---
 
-## License
-
-[MIT](LICENSE)
