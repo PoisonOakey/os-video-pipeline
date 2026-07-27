@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.0] - 2026-07-27
+
+### Added
+- **CI/CD Pipeline:** Implemented a GitHub Actions workflow to automatically lint PowerShell scripts using `PSScriptAnalyzer` on every push.
+- **Documentation:** Appended CI/CD pipeline details to `README.md`.
+
 ## [1.0.0] - 2026-07-05
 
 ### Changed
