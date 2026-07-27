@@ -1,4 +1,4 @@
-# DisplayLink Remediation Automation 🖥️
+# DisplayLink Remediation Automation
 
 > An OS-level automation suite to resolve degraded video output, pixelation, and bandwidth throttling when bypassing physical GPU bottlenecks via DisplayLink hardware.
 
@@ -12,7 +12,7 @@ An automated script that fixes display issues by safely removing corrupted graph
 
 ## 🛑 The Problem
 
-- **No direct video output:** The laptop's USB-C port doesn't support video directly.
+- **No direct video output:** My laptop's USB-C port doesn't support video directly.
 - **Adapter needed:** Connecting a monitor requires a DisplayLink adapter to send video over standard USB.
 - **Software glitches:** Old drivers often corrupt this connection, making the video blocky, pixelated, or completely unusable.
 
@@ -21,10 +21,11 @@ An automated script that fixes display issues by safely removing corrupted graph
 [Intel iGPU] ──(Direct Traces)──> [USB-C Port] ✖ [Signal Terminated]
 ```
 
-
 <img width="1024" height="559" alt="articwimds" src="https://github.com/user-attachments/assets/34bf3727-9313-45cb-8734-f1db923f9dca" />
 
 ---
+
+
 
 ## 🧠 Key Engineering Decisions
 
@@ -41,11 +42,8 @@ An automated script that fixes display issues by safely removing corrupted graph
 
 ```text
 📁 scripts/
-|
 ├── 📄 01-Isolate-And-BootSafe.ps1  # Prepares environment, isolates network, forces Safe Mode
-|
 ├── 📄 02-Purge-Drivers.ps1         # Silently executes DDU dual-GPU wipe
-|
 └── 📄 03-Deploy-DisplayLink.ps1    # Restores network & installs clean DisplayLink UI/Drivers
 ```
 
@@ -86,8 +84,20 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 | **Video Quality** | Blocky, pixelated, or completely unusable video | Crystal clear 4K display output with zero artifacts |
 | **Reliability** | Old, glitchy software corrupting the USB pipeline | Automated script ensures fresh, 100% stable drivers every time |
 
+---
+
 > [!NOTE]
 > ### 🔮 Future Roadmap
 > - **Centralized Config** — extract hardcoded URLs and version paths into a shared configuration file
 > - **Security Validation** — enforce hash/signature validation on downloaded binaries before execution
 > - **Idempotent Resilience** — validate exit codes and handle silent DDU failures to prevent pipeline lockups
+
+## ⚙️ CI/CD Pipeline
+
+This project implements a **GitHub Actions** pipeline for automated static analysis. Every push triggers `PSScriptAnalyzer` to lint the PowerShell execution scripts, ensuring robust code quality and error-free remediation deployments.
+
+---
+
+## License
+
+[MIT](LICENSE)
