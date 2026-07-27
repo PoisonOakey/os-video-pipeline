@@ -98,5 +98,4 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 This project implements a **GitHub Actions** pipeline for automated static analysis. Every push triggers `PSScriptAnalyzer` to lint the PowerShell execution scripts, ensuring robust code quality and error-free remediation deployments.
 
----
 
