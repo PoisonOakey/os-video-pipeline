@@ -43,13 +43,19 @@ try {
               Select-Object -First 1
     if (-not $DDUExe) { throw "DDU not found under $DDUFolder - did Phase 1 finish extracting?" }
 
+    # DDU is a GUI application (PE subsystem 2). The call operator does not wait for GUI
+    # processes and never sets $LASTEXITCODE, so '& $DDUExe ...' returned instantly with a
+    # null exit code while the purge ran on detached in the background - which would have
+    # let this script reboot the machine mid-purge. Start-Process -Wait is required.
     Write-Information "    [-] Evicting NVIDIA driver allocations..."
-    & $DDUExe.FullName -silent -nvidiaspecific -cleannorestart
-    Assert-NativeSuccess "DDU NVIDIA purge"
+    $nvidia = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-nvidiaspecific','-cleannorestart' -Wait -PassThru
+    Write-Information "    [-] DDU NVIDIA exit code: $($nvidia.ExitCode)"
+    if ($nvidia.ExitCode -ne 0) { throw "DDU NVIDIA purge failed with exit code $($nvidia.ExitCode)." }
 
     Write-Information "    [-] Evicting Intel Graphics driver allocations..."
-    & $DDUExe.FullName -silent -intelspecific -cleannorestart
-    Assert-NativeSuccess "DDU Intel purge"
+    $intel = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-intelspecific','-cleannorestart' -Wait -PassThru
+    Write-Information "    [-] DDU Intel exit code: $($intel.ExitCode)"
+    if ($intel.ExitCode -ne 0) { throw "DDU Intel purge failed with exit code $($intel.ExitCode)." }
 
     Write-Information "[+] Dismantling Safe Mode configuration flag..."
     & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
@@ -67,6 +73,16 @@ catch {
     # Failsafe: If DDU crashes, remove the safeboot flag anyway so the user isn't stuck forever.
     & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
     Write-Information "[!] Safe Mode flag cleared. REBOOT MANUALLY to return to normal Windows."
+
+    # Failsafe: restore the adapters Phase 1 disabled, so a failed purge does not leave the
+    # operator without network. Phase 3 does this on the success path; this covers the rest.
+    $saved = Get-Content "$DDUFolder\adapters.txt" -ErrorAction SilentlyContinue
+    if ($saved) {
+        Enable-NetAdapter -Name $saved -Confirm:$false -ErrorAction SilentlyContinue
+        Write-Information "[!] Attempted to re-enable: $($saved -join ', ')"
+    } else {
+        Get-NetAdapter -Physical | Enable-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue
+    }
 }
 # 4. The "Finally" Block: This runs no matter what happens
 finally {
