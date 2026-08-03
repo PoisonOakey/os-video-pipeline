@@ -52,7 +52,7 @@ An automated script that fixes display issues by safely removing corrupted graph
 ## ⚡ Execution
 
 **Prerequisites:** 
-1. **Critical:** Move your primary monitor to the laptop's built-in HDMI port (driven by the Intel iGPU) and verify it lights up. Stage 2 executes in Safe Mode, where DisplayLink USB graphics will not render, leaving you completely blind without HDMI.
+1. **Have a non-DisplayLink display available.** Stage 2 runs in Safe Mode, where the DisplayLink USB display driver is not expected to load, so the external monitor will likely go dark for that stage. The laptop's built-in panel covers this. (HDMI 1.4 is *not* a substitute for the 4K monitor here — it caps at 4K/30, which is the reason DisplayLink is used in the first place.)
 2. Disconnect the DisplayLink adapter.
 3. Open an elevated PowerShell terminal.
 

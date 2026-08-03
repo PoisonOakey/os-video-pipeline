@@ -70,7 +70,7 @@ try {
     # A corrupted-but-present install is the exact case this pipeline exists to fix,
     # and Phase 3's presence check cannot detect corruption - only absence.
     Write-Warning "This will UNINSTALL DisplayLink Graphics and Manager before the purge."
-    Write-Warning "Your DisplayLink monitor will go dark. Confirm your HDMI display is working NOW."
+    Write-Warning "Your DisplayLink monitor will go dark until Phase 3 completes. Use the laptop panel for Phase 2."
     $choice = Read-Host "Uninstall DisplayLink for a clean rebuild? (y/N)"
     if ($choice -notmatch "^[yY]") {
         Write-Information "[!] Keeping DisplayLink installed - Phase 3 will skip install and leave the current version in place."
