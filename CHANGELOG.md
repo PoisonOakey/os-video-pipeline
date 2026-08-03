@@ -5,6 +5,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [1.2.0] - 2026-07-30
 
+### Added
+- **`TROUBLESHOOTING.md`:** Safe Mode recovery runbook (elevated prompt, `msconfig`, WinRE) plus Symptoms/Root Cause/Resolution entries for each defect found during audit.
+- **Phase 1/3 (Adapter State):** Phase 1 records currently-enabled physical adapters to `C:\DDU\adapters.txt`; Phase 3 restores only those, instead of blindly enabling every physical adapter.
+- **Phase 1 (Download Integrity):** `MZ` header validation on the downloaded DDU payload to reject error pages saved as `.exe`.
+- **Phase 3 (Idempotency):** `Install-IfMissing` presence check so re-runs skip already-installed packages instead of failing on a non-zero winget exit code.
+- **Phase 3 (Network Gate):** Replaced a blind 15-second sleep with a 60-second DNS resolution check against `cdn.winget.microsoft.com`.
+- **CI:** Pinned `PSScriptAnalyzer` to `1.25.0` for reproducible lint runs.
+
 ### Fixed
 - **Phase 1 (Safe Mode Reboot):** Fixed a bug where a failed `bcdedit` command would silently ignore the error and reboot the machine into normal mode with network adapters disabled.
 - **Phase 1 (DDU Download):** Script now correctly unpacks the DDU self-extracting archive and recursively locates the true executable path, instead of falsely guarding on `C:\DDU\Display Driver Uninstaller.exe`.

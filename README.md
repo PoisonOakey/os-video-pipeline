@@ -77,6 +77,9 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 .\03-Deploy-DisplayLink.ps1
 ```
 
+> [!IMPORTANT]
+> If any stage fails — especially if you are left in Safe Mode or without network — see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** for recovery procedures.
+
 ---
 
 ## 📊 Status
