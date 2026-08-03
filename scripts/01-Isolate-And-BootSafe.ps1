@@ -12,6 +12,12 @@
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'Continue'
 
+# Refuse to run under WOW64. In the 32-bit host, C:\Windows\System32 redirects to
+# SysWOW64, which has no bcdedit.exe, so boot configuration cannot be reached at all.
+if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
+    throw "This must run in 64-bit PowerShell. You are in the 32-bit (x86) host, where System32 redirects to SysWOW64 and bcdedit.exe is unreachable. Launch 'Windows PowerShell' - not 'Windows PowerShell (x86)' - as Administrator."
+}
+
 function Assert-NativeSuccess {
     param([string]$What)
     if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE." }

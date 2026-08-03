@@ -10,6 +10,12 @@
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'Continue'
 
+# Refuse to run under WOW64, for consistency with Phases 1 and 2 and to keep winget
+# operating against the same 64-bit view of the system.
+if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
+    throw "This must run in 64-bit PowerShell. Launch 'Windows PowerShell' - not 'Windows PowerShell (x86)' - as Administrator."
+}
+
 function Assert-NativeSuccess {
     param([string]$What)
     if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE." }
