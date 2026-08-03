@@ -33,9 +33,11 @@ Start-Transcript -Path $LogPath -Append -Force
 # 2. The "Try" Block: Execute the dangerous code
 try {
     Write-Information "[+] Phase 3: Standard mode restored. Re-establishing physical network links..."
+    # Best-effort restore: a missing or renamed adapter must not abort the stage before
+    # DisplayLink is reinstalled. The DNS gate below is the real connectivity assertion.
     $saved = Get-Content "$DDUFolder\adapters.txt" -ErrorAction SilentlyContinue
-    if ($saved) { Enable-NetAdapter -Name $saved -Confirm:$false }
-    else { Enable-NetAdapter -Physical -Confirm:$false }
+    if ($saved) { Enable-NetAdapter -Name $saved -Confirm:$false -ErrorAction SilentlyContinue }
+    else { Enable-NetAdapter -Physical -Confirm:$false -ErrorAction SilentlyContinue }
 
     Write-Information "    [-] Waiting for network..."
     $deadline = (Get-Date).AddSeconds(60)

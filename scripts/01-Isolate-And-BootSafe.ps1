@@ -85,9 +85,15 @@ try {
     Assert-NativeSuccess "bcdedit safeboot"
 
     Write-Information "[+] Isolating physical network adapters..."
-    Get-NetAdapter -Physical | Where-Object Status -ne 'Disabled' |
-        Select-Object -ExpandProperty Name | Set-Content "$DDUFolder\adapters.txt"
-    Disable-NetAdapter -Physical -Confirm:$false
+    # Only capture adapters that are actually Up. 'Not Present' adapters (e.g. a Realtek
+    # GbE port with no hardware attached) would otherwise be recorded here and then throw
+    # in Phase 3 when Enable-NetAdapter is called against them.
+    $ActiveAdapters = @(Get-NetAdapter -Physical | Where-Object Status -eq 'Up')
+    if (-not $ActiveAdapters) { throw "No physical network adapters are Up - nothing to isolate. Aborting before boot config change." }
+
+    $ActiveAdapters | Select-Object -ExpandProperty Name | Set-Content "$DDUFolder\adapters.txt"
+    Write-Information "    [-] Recorded for restore: $($ActiveAdapters.Name -join ', ')"
+    $ActiveAdapters | Disable-NetAdapter -Confirm:$false
 
     Write-Information "[!] Phase 1 Complete. Restarting into Safe Mode in 5 seconds..."
     Start-Sleep -Seconds 5
