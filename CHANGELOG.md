@@ -15,6 +15,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **CI:** Pinned `PSScriptAnalyzer` to `1.25.0` for reproducible lint runs.
 
 ### Fixed
+- **All Phases (Invalid Parameter):** `Enable-NetAdapter -Physical` and `Disable-NetAdapter -Physical` were never valid - `-Physical` exists only on `Get-NetAdapter`. Both cmdlets now take their input from `Get-NetAdapter -Physical` via the pipeline. Present since 0.1.0 and surfaced only on first execution; PSScriptAnalyzer does not validate parameter names against cmdlet definitions.
+- **Phase 1/2 (bcdedit Resolution):** `bcdedit` was invoked bare and failed with `CommandNotFoundException` on a host whose PowerShell profile had removed `System32` from `$env:PATH`. Now resolved to an absolute path under `$env:WINDIR` and verified to exist before use.
 - **Phase 1 (Safe Mode Reboot):** Fixed a bug where a failed `bcdedit` command would silently ignore the error and reboot the machine into normal mode with network adapters disabled.
 - **Phase 1 (DDU Download):** Script now correctly unpacks the DDU self-extracting archive and recursively locates the true executable path, instead of falsely guarding on `C:\DDU\Display Driver Uninstaller.exe`.
 - **Phase 2 (Driver Purge):** Fixed a critical path parsing bug (`The term '.\Display' is not recognized`) by invoking DDU via the call operator `&` with a fully resolved path.

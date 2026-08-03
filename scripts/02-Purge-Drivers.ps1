@@ -16,6 +16,11 @@ function Assert-NativeSuccess {
     if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE." }
 }
 
+# Resolve System32 binaries by absolute path. A profile that rewrites $env:PATH can
+# leave System32 off it, and 'bcdedit' then fails with CommandNotFoundException.
+$BcdEdit = Join-Path $env:WINDIR "System32\bcdedit.exe"
+if (-not (Test-Path $BcdEdit)) { throw "bcdedit.exe not found at $BcdEdit." }
+
 $DDUFolder = "C:\DDU"
 $LogPath = "$DDUFolder\Phase2_Log.txt"
 Start-Transcript -Path $LogPath -Append -Force
@@ -41,7 +46,7 @@ try {
     Assert-NativeSuccess "DDU Intel purge"
 
     Write-Information "[+] Dismantling Safe Mode configuration flag..."
-    bcdedit /deletevalue "{current}" safeboot | Out-Null
+    & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
     Assert-NativeSuccess "bcdedit deletevalue"
 
     Write-Information "[!] Purge phase complete. Reverting to standard operating environment..."
@@ -54,7 +59,7 @@ catch {
     Write-Information "Error Details: $($_.Exception.Message)"
     Write-Information "[!] Applying emergency Boot Configuration fix to prevent Safe Mode trap..."
     # Failsafe: If DDU crashes, remove the safeboot flag anyway so the user isn't stuck forever.
-    bcdedit /deletevalue "{current}" safeboot | Out-Null
+    & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
     Write-Information "[!] Safe Mode flag cleared. REBOOT MANUALLY to return to normal Windows."
 }
 # 4. The "Finally" Block: This runs no matter what happens

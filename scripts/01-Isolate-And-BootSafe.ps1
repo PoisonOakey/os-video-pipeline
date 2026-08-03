@@ -28,6 +28,11 @@ function Uninstall-IfPresent {
     Assert-NativeSuccess "winget uninstall $Id"
 }
 
+# Resolve System32 binaries by absolute path. A profile that rewrites $env:PATH can
+# leave System32 off it, and 'bcdedit' then fails with CommandNotFoundException.
+$BcdEdit = Join-Path $env:WINDIR "System32\bcdedit.exe"
+if (-not (Test-Path $BcdEdit)) { throw "bcdedit.exe not found at $BcdEdit." }
+
 # 2. Establish Logging
 $DDUFolder = "C:\DDU"
 if (-not (Test-Path $DDUFolder)) { New-Item -ItemType Directory -Path $DDUFolder | Out-Null }
@@ -81,7 +86,7 @@ try {
     }
 
     Write-Information "[+] Configuring system for Safe Mode boot state..."
-    bcdedit /set "{current}" safeboot minimal | Out-Null
+    & $BcdEdit /set "{current}" safeboot minimal | Out-Null
     Assert-NativeSuccess "bcdedit safeboot"
 
     Write-Information "[+] Isolating physical network adapters..."
@@ -105,11 +110,11 @@ catch {
     Write-Information "Error Details: $($_.Exception.Message)"
     Write-Information "[!] Aborting Safe Mode reboot to prevent system stranding."
     # Failsafe: Attempt to turn Wi-Fi back on in case it failed right after disabling it
-    Enable-NetAdapter -Physical -Confirm:$false -ErrorAction SilentlyContinue
+    Get-NetAdapter -Physical | Enable-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue
     if (Get-NetAdapter -Physical | Where-Object Status -eq 'Disabled') {
-        Write-Information "[X] NETWORK STILL DOWN. Run manually: Enable-NetAdapter -Physical -Confirm:`$false"
+        Write-Information "[X] NETWORK STILL DOWN. Run manually: Get-NetAdapter -Physical | Enable-NetAdapter -Confirm:`$false"
     }
-    bcdedit /deletevalue "{current}" safeboot | Out-Null
+    & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
 }
 # 5. The "Finally" Block: This runs no matter what happens
 finally {

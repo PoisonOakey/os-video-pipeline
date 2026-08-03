@@ -37,7 +37,7 @@ try {
     # DisplayLink is reinstalled. The DNS gate below is the real connectivity assertion.
     $saved = Get-Content "$DDUFolder\adapters.txt" -ErrorAction SilentlyContinue
     if ($saved) { Enable-NetAdapter -Name $saved -Confirm:$false -ErrorAction SilentlyContinue }
-    else { Enable-NetAdapter -Physical -Confirm:$false -ErrorAction SilentlyContinue }
+    else { Get-NetAdapter -Physical | Enable-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue }
 
     Write-Information "    [-] Waiting for network..."
     $deadline = (Get-Date).AddSeconds(60)
