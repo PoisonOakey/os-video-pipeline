@@ -42,36 +42,40 @@ An automated script that fixes display issues by safely removing corrupted graph
 
 ```text
 📁 scripts/
-├── 📄 01-Isolate-And-BootSafe.ps1  # Prepares environment, isolates network, forces Safe Mode
-├── 📄 02-Purge-Drivers.ps1         # Silently executes DDU dual-GPU wipe
-└── 📄 03-Deploy-DisplayLink.ps1    # Restores network & installs clean DisplayLink UI/Drivers
+├── 📄 01-Isolate-And-BootSafe.ps1  # Uninstalls DisplayLink; optionally isolates network + forces Safe Mode
+├── 📄 02-Purge-Drivers.ps1         # Tier 2 only: DDU dual-GPU wipe inside Safe Mode
+└── 📄 03-Deploy-DisplayLink.ps1    # Restores adapters & installs clean DisplayLink driver + manager
 ```
 
 ---
 
 ## ⚡ Execution
 
-**Prerequisites:** 
-1. **Have a non-DisplayLink display available.** Stage 2 runs in Safe Mode, where the DisplayLink USB display driver is not expected to load, so the external monitor will likely go dark for that stage. The laptop's built-in panel covers this. (HDMI 1.4 is *not* a substitute for the 4K monitor here — it caps at 4K/30, which is the reason DisplayLink is used in the first place.)
-2. Disconnect the DisplayLink adapter.
-3. Open an elevated PowerShell terminal.
+Remediation is **tiered**. Tier 1 reinstalls DisplayLink and resolves the common case. Tier 2 escalates to a full GPU driver-stack purge from Safe Mode, and is opt-in via a `y/N` prompt in Stage 1. Only Tier 2 modifies boot configuration.
 
-### Stage 1: Isolate & Reboot
-Prompts to uninstall DisplayLink for a clean rebuild, then disables network adapters and reboots into Safe Mode.
+**Prerequisites:**
+1. Disconnect the DisplayLink adapter.
+2. Open an elevated **64-bit** PowerShell terminal. The scripts refuse to run under `Windows PowerShell (x86)` — see [Known Limitations](#-known-limitations).
+3. *Tier 2 only:* have a non-DisplayLink display available. Stage 2 runs in Safe Mode, where the DisplayLink USB display driver is not expected to load, so the external monitor will likely go dark for that stage. The laptop's built-in panel covers this. (HDMI 1.4 is *not* a substitute for a 4K monitor — it caps at 4K/30, which is why DisplayLink is used in the first place.)
+
+### Stage 1: Uninstall & Reboot
+Prompts twice: whether to uninstall DisplayLink for a clean rebuild, and whether to escalate to the Tier 2 purge. Answering `N` to the second prompt leaves boot configuration and networking untouched and reboots straight to Stage 3.
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
 .\01-Isolate-And-BootSafe.ps1
 ```
 
-### Stage 2: The Purge
-*(Run after logging into Safe Mode)*. Silently wipes corrupted drivers and reboots normally.
+### Stage 2: The Purge — *Tier 2 only*
+*(Run after logging into Safe Mode)*. Wipes the NVIDIA and Intel driver stacks with DDU, clears the Safe Mode flag, and reboots normally. Skip this entirely if you declined the purge prompt.
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
 .\02-Purge-Drivers.ps1
 ```
 
 ### Stage 3: Deploy & Reconnect
-*(Run in normal Windows)*. Rebuilds the underlying Intel/NVIDIA GPU stack that DisplayLink composites through, and ensures the DisplayLink drivers are present. Restores networking. Reconnect adapter after completion.
+*(Run in normal Windows)*. Restores any adapters Stage 1 disabled, waits for real DNS resolution, and installs the DisplayLink driver and manager. Reconnect the adapter after completion.
+
+Note that this stage does **not** reinstall Intel or NVIDIA drivers — Windows Update does that on its own once networking returns.
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
 .\03-Deploy-DisplayLink.ps1
@@ -84,9 +88,16 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 ## 📊 Status
 
-This pipeline is currently written and statically analyzed via CI, but **it has not yet been executed end-to-end on hardware.** The original display fix performed on 2026-07-03 was done manually; this automated code was created retroactively and awaits a live execution run for validation. 
+The original display fix on 2026-07-03 was performed manually; this code was written retroactively and, until 2026-08-03, had **never been executed**. Running it surfaced six defects that static analysis could not reach — see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
-**Clean Rebuild:** Stage 1 prompts (`y/N`, defaulting to No) to uninstall the DisplayLink packages before the purge, and Stage 3 reinstalls them. This exists because Stage 3's `Install-IfMissing` check tests only for *presence* — a corrupted-but-installed DisplayLink, the exact fault this pipeline targets, would otherwise be skipped over and left in place. Answer `y` for a genuine remediation; answer `N` to leave the current version untouched.
+| Path | State |
+|---|---|
+| Stage 1 — uninstall, boot-flag set, adapter isolation, reboot to Safe Mode | **Verified on hardware** 2026-08-03 |
+| Stage 3 — adapter restore, DNS gate, DisplayLink install | **Verified on hardware** 2026-08-04. Installed Graphics `12.2.2412.0` and Manager `3.2.14.0`; monitor confirmed working |
+| Stage 2 — DDU purge | **Partially exercised.** The NVIDIA purge completed and removed the driver; the script then aborted on a false failure before reaching the Intel step. Fixed, not yet re-run |
+| Tier 1 branch — skipping the purge entirely | **Not yet executed.** Added after the hardware run |
+
+**Clean Rebuild:** Stage 1 prompts (`y/N`, defaulting to No) to uninstall the DisplayLink packages, and Stage 3 reinstalls them. This exists because Stage 3's `Install-IfMissing` check tests only for *presence* — a corrupted-but-installed DisplayLink, the exact fault this pipeline targets, would otherwise be skipped over. On the verified run this also delivered a version bump from `12.2.2204.0` to `12.2.2412.0`, which a presence check alone would have skipped.
 
 *(Note: The winget package ID `DisplayLink.GraphicsDriver` was verified against live winget on 2026-07-30).*
 

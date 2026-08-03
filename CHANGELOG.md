@@ -6,6 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [1.2.0] - 2026-07-30
 
 ### Added
+- **Phase 1 (Tiered Remediation):** Interactive `y/N` prompt to escalate to the Safe Mode GPU driver purge. Declining skips `bcdedit` and adapter isolation entirely and reboots straight to Phase 3, keeping the blast radius to a package reinstall. Only the escalation branch modifies boot configuration. The default path is the one verified on hardware; the purge is the escalation for when reinstalling DisplayLink alone is not enough.
 - **Phase 1 (Clean Rebuild):** Interactive `y/N` prompt to uninstall the DisplayLink packages before the purge, so Phase 3 reinstalls them clean. Phase 3's presence check cannot detect a corrupted-but-installed package - the exact fault this pipeline targets - so without removal it would skip the install entirely. The prompt defaults to No and warns that the DisplayLink monitor stays dark until Phase 3 completes.
 - **`TROUBLESHOOTING.md`:** Safe Mode recovery runbook (elevated prompt, `msconfig`, WinRE) plus Symptoms/Root Cause/Resolution entries for each defect found during audit.
 - **Phase 1/3 (Adapter State):** Phase 1 records currently-enabled physical adapters to `C:\DDU\adapters.txt`; Phase 3 restores only those, instead of blindly enabling every physical adapter.

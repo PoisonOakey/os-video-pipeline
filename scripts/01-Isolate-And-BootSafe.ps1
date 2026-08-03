@@ -3,8 +3,9 @@
 .SYNOPSIS
     Phase 1: Environment Preparation and Network Isolation.
 .DESCRIPTION
-    Downloads DDU, optionally uninstalls DisplayLink for a clean rebuild, disables
-    physical network adapters, and reboots into Safe Mode.
+    Optionally uninstalls DisplayLink for a clean rebuild, then prompts for the escalation
+    tier. Declining reboots straight to Phase 3. Accepting downloads DDU, sets the Safe Mode
+    boot flag, isolates physical network adapters, and reboots into Safe Mode for Phase 2.
     Includes automated transcript logging and fail-safe error handling.
 #>
 
@@ -91,22 +92,37 @@ try {
         Uninstall-IfPresent -Id "9N09F8V8FS02" -ExtraArgs @("--source", "msstore")
     }
 
-    Write-Information "[+] Configuring system for Safe Mode boot state..."
-    & $BcdEdit /set "{current}" safeboot minimal | Out-Null
-    Assert-NativeSuccess "bcdedit safeboot"
+    # Tier 2 is opt-in. Reinstalling DisplayLink alone resolves the common case; purging the
+    # GPU driver stack is the escalation for when it does not. Only this branch touches boot
+    # configuration, so declining keeps the blast radius to a package reinstall.
+    Write-Warning "DEEP PURGE wipes the NVIDIA and Intel driver stacks with DDU from Safe Mode."
+    Write-Warning "Only do this if reinstalling DisplayLink alone did not fix the display."
+    $deepPurge = Read-Host "Run the deep GPU driver purge in Safe Mode? (y/N)"
 
-    Write-Information "[+] Isolating physical network adapters..."
-    # Only capture adapters that are actually Up. 'Not Present' adapters (e.g. a Realtek
-    # GbE port with no hardware attached) would otherwise be recorded here and then throw
-    # in Phase 3 when Enable-NetAdapter is called against them.
-    $ActiveAdapters = @(Get-NetAdapter -Physical | Where-Object Status -eq 'Up')
-    if (-not $ActiveAdapters) { throw "No physical network adapters are Up - nothing to isolate. Aborting before boot config change." }
+    if ($deepPurge -notmatch "^[yY]") {
+        Write-Information "[!] Skipping deep purge. Boot configuration and network left untouched."
+        # Clear any stale record so Phase 3 does not try to restore adapters this run never disabled.
+        Remove-Item "$DDUFolder\adapters.txt" -ErrorAction SilentlyContinue
+        Write-Information "[!] Phase 1 Complete. Rebooting in 5 seconds - then run 03-Deploy-DisplayLink.ps1."
+    } else {
+        Write-Information "[+] Configuring system for Safe Mode boot state..."
+        & $BcdEdit /set "{current}" safeboot minimal | Out-Null
+        Assert-NativeSuccess "bcdedit safeboot"
 
-    $ActiveAdapters | Select-Object -ExpandProperty Name | Set-Content "$DDUFolder\adapters.txt"
-    Write-Information "    [-] Recorded for restore: $($ActiveAdapters.Name -join ', ')"
-    $ActiveAdapters | Disable-NetAdapter -Confirm:$false
+        Write-Information "[+] Isolating physical network adapters..."
+        # Only capture adapters that are actually Up. 'Not Present' adapters (e.g. a Realtek
+        # GbE port with no hardware attached) would otherwise be recorded here and then throw
+        # in Phase 3 when Enable-NetAdapter is called against them.
+        $ActiveAdapters = @(Get-NetAdapter -Physical | Where-Object Status -eq 'Up')
+        if (-not $ActiveAdapters) { throw "No physical network adapters are Up - nothing to isolate. Aborting before boot config change." }
 
-    Write-Information "[!] Phase 1 Complete. Restarting into Safe Mode in 5 seconds..."
+        $ActiveAdapters | Select-Object -ExpandProperty Name | Set-Content "$DDUFolder\adapters.txt"
+        Write-Information "    [-] Recorded for restore: $($ActiveAdapters.Name -join ', ')"
+        $ActiveAdapters | Disable-NetAdapter -Confirm:$false
+
+        Write-Information "[!] Phase 1 Complete. Restarting into Safe Mode in 5 seconds - then run 02-Purge-Drivers.ps1."
+    }
+
     Start-Sleep -Seconds 5
     Restart-Computer
 }
