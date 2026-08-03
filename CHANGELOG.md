@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] - 2026-07-30
+
+### Fixed
+- **Phase 1 (Safe Mode Reboot):** Fixed a bug where a failed `bcdedit` command would silently ignore the error and reboot the machine into normal mode with network adapters disabled.
+- **Phase 1 (DDU Download):** Script now correctly unpacks the DDU self-extracting archive and recursively locates the true executable path, instead of falsely guarding on `C:\DDU\Display Driver Uninstaller.exe`.
+- **Phase 2 (Driver Purge):** Fixed a critical path parsing bug (`The term '.\Display' is not recognized`) by invoking DDU via the call operator `&` with a fully resolved path.
+- **Phase 3 (DisplayLink Install):** Replaced the invalid `--quiet` flag with `--silent` for `winget` installations. Corrected the DisplayLink winget package ID to `DisplayLink.GraphicsDriver`.
+- **Global:** Replaced default `SilentlyContinue` output stream so all console messages are now visible.
+- **Global:** Added explicit `#Requires -RunAsAdministrator` flags.
+- **Global:** Added strict native exit-code assertions to ensure commands like `winget` and `bcdedit` actually fail the script when they error.
+
 ## [1.1.0] - 2026-07-27
 
 ### Added

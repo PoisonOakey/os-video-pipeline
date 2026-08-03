@@ -1,3 +1,4 @@
+#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Phase 3: Network Restoration and DisplayLink Deployment.
@@ -7,6 +8,23 @@
 
 # 1. Force all silent errors to instantly trigger the Catch block
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
+
+function Assert-NativeSuccess {
+    param([string]$What)
+    if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE." }
+}
+
+function Install-IfMissing {
+    param([string]$Id, [string[]]$ExtraArgs)
+    winget list -e --id $Id | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Information "    [-] $Id already present - skipping."
+        return
+    }
+    winget install -e --id $Id --accept-package-agreements --accept-source-agreements --silent @ExtraArgs
+    Assert-NativeSuccess "winget install $Id"
+}
 
 $DDUFolder = "C:\DDU"
 $LogPath = "$DDUFolder\Phase3_Log.txt"
@@ -14,21 +32,27 @@ Start-Transcript -Path $LogPath -Append -Force
 
 # 2. The "Try" Block: Execute the dangerous code
 try {
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw "Elevated PowerShell terminal required (Run as Administrator)."
+    Write-Information "[+] Phase 3: Standard mode restored. Re-establishing physical network links..."
+    $saved = Get-Content "$DDUFolder\adapters.txt" -ErrorAction SilentlyContinue
+    if ($saved) { Enable-NetAdapter -Name $saved -Confirm:$false }
+    else { Enable-NetAdapter -Physical -Confirm:$false }
+
+    Write-Information "    [-] Waiting for network..."
+    $deadline = (Get-Date).AddSeconds(60)
+    while ($true) {
+        # Using Resolve-DnsName to prove we have both network and DNS resolution to Microsoft's CDN
+        $dnsResult = Resolve-DnsName cdn.winget.microsoft.com -ErrorAction SilentlyContinue
+        if ($dnsResult) { break }
+        
+        if ((Get-Date) -gt $deadline) { throw "No network connectivity after 60s - cannot reach winget sources." }
+        Start-Sleep -Seconds 3
     }
 
-    Write-Information "[+] Phase 3: Standard mode restored. Re-establishing physical network links..."
-    Enable-NetAdapter -Physical -Confirm:$false
-
-    Write-Information "    [-] Waiting for adapter lease and network stability (15 seconds)..."
-    Start-Sleep -Seconds 15
-
     Write-Information "[+] Deploying DisplayLink Core Driver..."
-    winget install -e --id Synaptics.DisplayLink --accept-package-agreements --accept-source-agreements --quiet
+    Install-IfMissing -Id "DisplayLink.GraphicsDriver"
 
     Write-Information "[+] Deploying DisplayLink Manager from MS Store..."
-    winget install --id 9N09F8V8FS02 --source msstore --accept-package-agreements --accept-source-agreements --quiet
+    Install-IfMissing -Id "9N09F8V8FS02" -ExtraArgs @("--source", "msstore")
 
     Write-Information "[!] Remediation pipeline complete. Plug in the DisplayLink adapter."
 }

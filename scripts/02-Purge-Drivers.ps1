@@ -1,3 +1,4 @@
+#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Phase 2: Dual-GPU Driver Purge.
@@ -8,6 +9,12 @@
 
 # 1. Force all silent errors to instantly trigger the Catch block
 $ErrorActionPreference = 'Stop'
+$InformationPreference = 'Continue'
+
+function Assert-NativeSuccess {
+    param([string]$What)
+    if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE." }
+}
 
 $DDUFolder = "C:\DDU"
 $LogPath = "$DDUFolder\Phase2_Log.txt"
@@ -15,25 +22,27 @@ Start-Transcript -Path $LogPath -Append -Force
 
 # 2. The "Try" Block: Execute the dangerous code
 try {
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw "Elevated PowerShell terminal required (Run as Administrator)."
-    }
-
     if (-not (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Option" -ErrorAction SilentlyContinue)) {
         throw "Safe Mode environment not detected. Aborting purge to protect live system."
     }
 
     Write-Information "[+] Phase 2: Safe Mode confirmed. Initiating silent DDU purge..."
-    Set-Location -Path $DDUFolder
+
+    $DDUExe = Get-ChildItem -Path $DDUFolder -Filter "Display Driver Uninstaller.exe" -Recurse -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+    if (-not $DDUExe) { throw "DDU not found under $DDUFolder - did Phase 1 finish extracting?" }
 
     Write-Information "    [-] Evicting NVIDIA driver allocations..."
-    .\Display Driver Uninstaller.exe -silent -nvidiaspecific -cleannorestart
+    & $DDUExe.FullName -silent -nvidiaspecific -cleannorestart
+    Assert-NativeSuccess "DDU NVIDIA purge"
 
     Write-Information "    [-] Evicting Intel Graphics driver allocations..."
-    .\Display Driver Uninstaller.exe -silent -intelspecific -cleannorestart
+    & $DDUExe.FullName -silent -intelspecific -cleannorestart
+    Assert-NativeSuccess "DDU Intel purge"
 
     Write-Information "[+] Dismantling Safe Mode configuration flag..."
     bcdedit /deletevalue "{current}" safeboot | Out-Null
+    Assert-NativeSuccess "bcdedit deletevalue"
 
     Write-Information "[!] Purge phase complete. Reverting to standard operating environment..."
     Start-Sleep -Seconds 3
@@ -46,6 +55,7 @@ catch {
     Write-Information "[!] Applying emergency Boot Configuration fix to prevent Safe Mode trap..."
     # Failsafe: If DDU crashes, remove the safeboot flag anyway so the user isn't stuck forever.
     bcdedit /deletevalue "{current}" safeboot | Out-Null
+    Write-Information "[!] Safe Mode flag cleared. REBOOT MANUALLY to return to normal Windows."
 }
 # 4. The "Finally" Block: This runs no matter what happens
 finally {

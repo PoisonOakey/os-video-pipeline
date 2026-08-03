@@ -51,7 +51,10 @@ An automated script that fixes display issues by safely removing corrupted graph
 
 ## ⚡ Execution
 
-**Prerequisites:** Disconnect the DisplayLink adapter. Open an elevated PowerShell terminal.
+**Prerequisites:** 
+1. **Critical:** Move your primary monitor to the laptop's built-in HDMI port (driven by the Intel iGPU) and verify it lights up. Stage 2 executes in Safe Mode, where DisplayLink USB graphics will not render, leaving you completely blind without HDMI.
+2. Disconnect the DisplayLink adapter.
+3. Open an elevated PowerShell terminal.
 
 ### Stage 1: Isolate & Reboot
 Disables network adapters and reboots into Safe Mode.
@@ -68,7 +71,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 ```
 
 ### Stage 3: Deploy & Reconnect
-*(Run in normal Windows)*. Restores networking and installs clean drivers. Reconnect adapter after completion.
+*(Run in normal Windows)*. Rebuilds the underlying Intel/NVIDIA GPU stack that DisplayLink composites through, and ensures the DisplayLink drivers are present. Restores networking. Reconnect adapter after completion.
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
 .\03-Deploy-DisplayLink.ps1
@@ -76,13 +79,21 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 ---
 
-## 📈 The Outcome
+## 📊 Status
 
-| Issue | Before (The Problem) | After (The Outcome) |
-|---|---|---|
-| **Hardware Gap** | Reliant on a USB adapter that is prone to driver corruption | Perfectly managed software layer enabling flawless adapter use |
-| **Video Quality** | Blocky, pixelated, or completely unusable video | Crystal clear 4K display output with zero artifacts |
-| **Reliability** | Old, glitchy software corrupting the USB pipeline | Automated script ensures fresh, 100% stable drivers every time |
+This pipeline is currently written and statically analyzed via CI, but **it has not yet been executed end-to-end on hardware.** The original display fix performed on 2026-07-03 was done manually; this automated code was created retroactively and awaits a live execution run for validation. 
+
+**Validation Scope:** The Stage 3 script implements an `Install-IfMissing` presence check. Because the DisplayLink packages are currently installed on the host, running the script as-is will simply skip the installation and leave stale versions in place. To truly test the installation path and validate a fix for a corrupted setup, you must manually uninstall both DisplayLink packages **after** connecting your HDMI monitor, but before running Stage 1.
+
+*(Note: The winget package ID `DisplayLink.GraphicsDriver` was verified against live winget on 2026-07-30).*
+
+---
+
+## ⚠️ Known Limitations
+
+- **PowerShell 5.1 Native Exit Codes:** By design, `$ErrorActionPreference = 'Stop'` does not trap native exe failures (e.g., `bcdedit`, `winget`, `curl`). We rely on a manual `Assert-NativeSuccess` helper function to catch non-zero `$LASTEXITCODE` values.
+- **Unverified DDU SFX Layout:** The assumption that the DDU 7-Zip self-extractor extracts to a specific versioned subfolder is based on on-disk forensics, not an observed execution run. A recursive search mitigates this.
+- **Unverified MS Store Elevation:** MS Store package installations (`9N09F8V8FS02`) via winget executed under an elevated `Administrator` context can be unreliable. This needs a live run to confirm.
 
 ---
 
@@ -96,6 +107,5 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 ## ⚙️ CI/CD Pipeline
 
-This project implements a **GitHub Actions** pipeline for automated static analysis. Every push triggers `PSScriptAnalyzer` to lint the PowerShell execution scripts, ensuring robust code quality and error-free remediation deployments.
-
-
+This project implements a **GitHub Actions** pipeline for automated static analysis. Every push triggers `PSScriptAnalyzer` to lint the PowerShell execution scripts. 
+**Note:** This CI pipeline covers *static analysis only* and does not guarantee execution correctness or run the pipeline on live hardware.
