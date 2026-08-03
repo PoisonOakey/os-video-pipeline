@@ -3,7 +3,8 @@
 .SYNOPSIS
     Phase 1: Environment Preparation and Network Isolation.
 .DESCRIPTION
-    Downloads DDU, disables physical network adapters, and reboots into Safe Mode.
+    Downloads DDU, optionally uninstalls DisplayLink for a clean rebuild, disables
+    physical network adapters, and reboots into Safe Mode.
     Includes automated transcript logging and fail-safe error handling.
 #>
 
@@ -14,6 +15,17 @@ $InformationPreference = 'Continue'
 function Assert-NativeSuccess {
     param([string]$What)
     if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE." }
+}
+
+function Uninstall-IfPresent {
+    param([string]$Id, [string[]]$ExtraArgs)
+    winget list -e --id $Id | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Information "    [-] $Id not installed - nothing to remove."
+        return
+    }
+    winget uninstall -e --id $Id --silent @ExtraArgs
+    Assert-NativeSuccess "winget uninstall $Id"
 }
 
 # 2. Establish Logging
@@ -53,6 +65,20 @@ try {
 
     if (-not $DDUExe) { throw "DDU binary not found under $DDUFolder after extraction." }
     Write-Information "    [-] DDU resolved: $($DDUExe.FullName)"
+
+    # Remove DisplayLink BEFORE the reboot. Phase 3 reinstalls it clean.
+    # A corrupted-but-present install is the exact case this pipeline exists to fix,
+    # and Phase 3's presence check cannot detect corruption - only absence.
+    Write-Warning "This will UNINSTALL DisplayLink Graphics and Manager before the purge."
+    Write-Warning "Your DisplayLink monitor will go dark. Confirm your HDMI display is working NOW."
+    $choice = Read-Host "Uninstall DisplayLink for a clean rebuild? (y/N)"
+    if ($choice -notmatch "^[yY]") {
+        Write-Information "[!] Keeping DisplayLink installed - Phase 3 will skip install and leave the current version in place."
+    } else {
+        Write-Information "[+] Removing DisplayLink packages for a clean rebuild..."
+        Uninstall-IfPresent -Id "DisplayLink.GraphicsDriver"
+        Uninstall-IfPresent -Id "9N09F8V8FS02" -ExtraArgs @("--source", "msstore")
+    }
 
     Write-Information "[+] Configuring system for Safe Mode boot state..."
     bcdedit /set "{current}" safeboot minimal | Out-Null

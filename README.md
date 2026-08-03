@@ -57,7 +57,7 @@ An automated script that fixes display issues by safely removing corrupted graph
 3. Open an elevated PowerShell terminal.
 
 ### Stage 1: Isolate & Reboot
-Disables network adapters and reboots into Safe Mode.
+Prompts to uninstall DisplayLink for a clean rebuild, then disables network adapters and reboots into Safe Mode.
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
 .\01-Isolate-And-BootSafe.ps1
@@ -86,7 +86,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 This pipeline is currently written and statically analyzed via CI, but **it has not yet been executed end-to-end on hardware.** The original display fix performed on 2026-07-03 was done manually; this automated code was created retroactively and awaits a live execution run for validation. 
 
-**Validation Scope:** The Stage 3 script implements an `Install-IfMissing` presence check. Because the DisplayLink packages are currently installed on the host, running the script as-is will simply skip the installation and leave stale versions in place. To truly test the installation path and validate a fix for a corrupted setup, you must manually uninstall both DisplayLink packages **after** connecting your HDMI monitor, but before running Stage 1.
+**Clean Rebuild:** Stage 1 prompts (`y/N`, defaulting to No) to uninstall the DisplayLink packages before the purge, and Stage 3 reinstalls them. This exists because Stage 3's `Install-IfMissing` check tests only for *presence* — a corrupted-but-installed DisplayLink, the exact fault this pipeline targets, would otherwise be skipped over and left in place. Answer `y` for a genuine remediation; answer `N` to leave the current version untouched.
 
 *(Note: The winget package ID `DisplayLink.GraphicsDriver` was verified against live winget on 2026-07-30).*
 
