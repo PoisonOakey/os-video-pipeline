@@ -17,7 +17,7 @@ jobs:
         shell: powershell
         run: |
           Install-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Force -Scope CurrentUser
-          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning -Settings .\PSScriptAnalyzerSettings.psd1
           if ($results) {
             $results | Format-Table
             Write-Error "PSScriptAnalyzer found issues."

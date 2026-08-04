@@ -105,7 +105,9 @@ The original display fix on 2026-07-03 was performed manually; this code was wri
 
 ## ⚠️ Known Limitations
 
-- **PowerShell 5.1 Native Exit Codes:** By design, `$ErrorActionPreference = 'Stop'` does not trap native exe failures (e.g., `bcdedit`, `winget`, `curl`). We rely on a manual `Assert-NativeSuccess` helper function to catch non-zero `$LASTEXITCODE` values.
+- **64-bit PowerShell required:** The scripts refuse to run under `Windows PowerShell (x86)`. Under WOW64, `C:\Windows\System32` redirects to `SysWOW64`, which has no `bcdedit.exe`, so boot configuration is unreachable.
+- **PowerShell 5.1 Native Exit Codes:** By design, `$ErrorActionPreference = 'Stop'` does not trap native exe failures (e.g., `bcdedit`, `winget`, `curl`). We rely on a manual `Assert-NativeSuccess` helper function to catch non-zero `$LASTEXITCODE` values. GUI applications such as DDU do not set `$LASTEXITCODE` at all and require `Start-Process -Wait -PassThru`.
+- **`Write-Host` is deliberate:** `Start-Transcript` in PowerShell 5.1 does not capture the information stream, so `Write-Information` produces silent log files. `PSScriptAnalyzerSettings.psd1` excludes `PSAvoidUsingWriteHost` for this reason, documented inline.
 - **Unverified DDU SFX Layout:** The assumption that the DDU 7-Zip self-extractor extracts to a specific versioned subfolder is based on on-disk forensics, not an observed execution run. A recursive search mitigates this.
 - **Unverified MS Store Elevation:** MS Store package installations (`9N09F8V8FS02`) via winget executed under an elevated `Administrator` context can be unreliable. This needs a live run to confirm.
 

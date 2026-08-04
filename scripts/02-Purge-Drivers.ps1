@@ -9,7 +9,6 @@
 
 # 1. Force all silent errors to instantly trigger the Catch block
 $ErrorActionPreference = 'Stop'
-$InformationPreference = 'Continue'
 
 # Refuse to run under WOW64. In the 32-bit host, C:\Windows\System32 redirects to
 # SysWOW64, which has no bcdedit.exe, so boot configuration cannot be reached at all.
@@ -37,7 +36,7 @@ try {
         throw "Safe Mode environment not detected. Aborting purge to protect live system."
     }
 
-    Write-Information "[+] Phase 2: Safe Mode confirmed. Initiating silent DDU purge..."
+    Write-Host "[+] Phase 2: Safe Mode confirmed. Initiating silent DDU purge..."
 
     $DDUExe = Get-ChildItem -Path $DDUFolder -Filter "Display Driver Uninstaller.exe" -Recurse -ErrorAction SilentlyContinue |
               Select-Object -First 1
@@ -47,45 +46,45 @@ try {
     # processes and never sets $LASTEXITCODE, so '& $DDUExe ...' returned instantly with a
     # null exit code while the purge ran on detached in the background - which would have
     # let this script reboot the machine mid-purge. Start-Process -Wait is required.
-    Write-Information "    [-] Evicting NVIDIA driver allocations..."
+    Write-Host "    [-] Evicting NVIDIA driver allocations..."
     $nvidia = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-nvidiaspecific','-cleannorestart' -Wait -PassThru
-    Write-Information "    [-] DDU NVIDIA exit code: $($nvidia.ExitCode)"
+    Write-Host "    [-] DDU NVIDIA exit code: $($nvidia.ExitCode)"
     if ($nvidia.ExitCode -ne 0) { throw "DDU NVIDIA purge failed with exit code $($nvidia.ExitCode)." }
 
-    Write-Information "    [-] Evicting Intel Graphics driver allocations..."
+    Write-Host "    [-] Evicting Intel Graphics driver allocations..."
     $intel = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-intelspecific','-cleannorestart' -Wait -PassThru
-    Write-Information "    [-] DDU Intel exit code: $($intel.ExitCode)"
+    Write-Host "    [-] DDU Intel exit code: $($intel.ExitCode)"
     if ($intel.ExitCode -ne 0) { throw "DDU Intel purge failed with exit code $($intel.ExitCode)." }
 
-    Write-Information "[+] Dismantling Safe Mode configuration flag..."
+    Write-Host "[+] Dismantling Safe Mode configuration flag..."
     & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
     Assert-NativeSuccess "bcdedit deletevalue"
 
-    Write-Information "[!] Purge phase complete. Reverting to standard operating environment..."
+    Write-Host "[!] Purge phase complete. Reverting to standard operating environment..."
     Start-Sleep -Seconds 3
     Restart-Computer
 }
 # 3. The "Catch" Block: If ANYTHING fails above, execution instantly jumps here
 catch {
-    Write-Information "`n[X] CRITICAL PIPELINE FAILURE"
-    Write-Information "Error Details: $($_.Exception.Message)"
-    Write-Information "[!] Applying emergency Boot Configuration fix to prevent Safe Mode trap..."
+    Write-Host "`n[X] CRITICAL PIPELINE FAILURE"
+    Write-Host "Error Details: $($_.Exception.Message)"
+    Write-Host "[!] Applying emergency Boot Configuration fix to prevent Safe Mode trap..."
     # Failsafe: If DDU crashes, remove the safeboot flag anyway so the user isn't stuck forever.
     & $BcdEdit /deletevalue "{current}" safeboot | Out-Null
-    Write-Information "[!] Safe Mode flag cleared. REBOOT MANUALLY to return to normal Windows."
+    Write-Host "[!] Safe Mode flag cleared. REBOOT MANUALLY to return to normal Windows."
 
     # Failsafe: restore the adapters Phase 1 disabled, so a failed purge does not leave the
     # operator without network. Phase 3 does this on the success path; this covers the rest.
     $saved = Get-Content "$DDUFolder\adapters.txt" -ErrorAction SilentlyContinue
     if ($saved) {
         Enable-NetAdapter -Name $saved -Confirm:$false -ErrorAction SilentlyContinue
-        Write-Information "[!] Attempted to re-enable: $($saved -join ', ')"
+        Write-Host "[!] Attempted to re-enable: $($saved -join ', ')"
     } else {
         Get-NetAdapter -Physical | Enable-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue
     }
 }
 # 4. The "Finally" Block: This runs no matter what happens
 finally {
-    Write-Information "[+] Stopping transcript log..."
+    Write-Host "[+] Stopping transcript log..."
     Stop-Transcript
 }

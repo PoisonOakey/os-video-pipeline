@@ -13,9 +13,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Phase 1 (Download Integrity):** `MZ` header validation on the downloaded DDU payload to reject error pages saved as `.exe`.
 - **Phase 3 (Idempotency):** `Install-IfMissing` presence check so re-runs skip already-installed packages instead of failing on a non-zero winget exit code.
 - **Phase 3 (Network Gate):** Replaced a blind 15-second sleep with a 60-second DNS resolution check against `cdn.winget.microsoft.com`.
-- **CI:** Pinned `PSScriptAnalyzer` to `1.25.0` for reproducible lint runs.
+- **CI:** Pinned `PSScriptAnalyzer` to `1.25.0` for reproducible lint runs, and pointed it explicitly at `PSScriptAnalyzerSettings.psd1`.
+- **`PSScriptAnalyzerSettings.psd1`:** Rule configuration with inline justification for the single excluded rule. Without it the suite reports 41 `PSAvoidUsingWriteHost` warnings and CI fails.
 
 ### Fixed
+- **All Phases (Silent Transcripts):** Reverted `Write-Information` back to `Write-Host`. `Start-Transcript` in PowerShell 5.1 does not capture the information stream, so every status line - including `[X] CRITICAL PIPELINE FAILURE` - was absent from the log files under `C:\DDU`. Measured on 5.1.26100.8972 from a non-interactive script: `Write-Information` absent, `Write-Host` and `Write-Warning` captured. The v1.0.0 swap to `Write-Information` was made to satisfy `PSAvoidUsingWriteHost` and silently broke the only evidence these scripts produce. `PSScriptAnalyzerSettings.psd1` now excludes that rule deliberately, with the reasoning recorded in the file.
 - **All Phases (Invalid Parameter):** `Enable-NetAdapter -Physical` and `Disable-NetAdapter -Physical` were never valid - `-Physical` exists only on `Get-NetAdapter`. Both cmdlets now take their input from `Get-NetAdapter -Physical` via the pipeline. Present since 0.1.0 and surfaced only on first execution; PSScriptAnalyzer does not validate parameter names against cmdlet definitions.
 - **Phase 1/2 (bcdedit Resolution):** `bcdedit` was invoked bare and failed with `CommandNotFoundException` on a host whose PowerShell profile had removed `System32` from `$env:PATH`. Now resolved to an absolute path under `$env:WINDIR` and verified to exist before use.
 - **Phase 1 (Safe Mode Reboot):** Fixed a bug where a failed `bcdedit` command would silently ignore the error and reboot the machine into normal mode with network adapters disabled.
