@@ -46,13 +46,18 @@ try {
     # processes and never sets $LASTEXITCODE, so '& $DDUExe ...' returned instantly with a
     # null exit code while the purge ran on detached in the background - which would have
     # let this script reboot the machine mid-purge. Start-Process -Wait is required.
+    # Argument names verified by extracting the literal strings from the DDU binary itself.
+    # '-nvidiaspecific', '-intelspecific' and '-cleannorestart' were used here since 0.1.0 and
+    # none of them exist. DDU silently fell back to its GUI and waited for a human, which is
+    # why Start-Process -Wait blocked indefinitely. Valid verbs are -cleannvidia / -cleanintel.
+    # Restart is opt-in via -restart, so omitting it leaves this script in control of reboots.
     Write-Host "    [-] Evicting NVIDIA driver allocations..."
-    $nvidia = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-nvidiaspecific','-cleannorestart' -Wait -PassThru
+    $nvidia = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-cleannvidia' -Wait -PassThru
     Write-Host "    [-] DDU NVIDIA exit code: $($nvidia.ExitCode)"
     if ($nvidia.ExitCode -ne 0) { throw "DDU NVIDIA purge failed with exit code $($nvidia.ExitCode)." }
 
     Write-Host "    [-] Evicting Intel Graphics driver allocations..."
-    $intel = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-intelspecific','-cleannorestart' -Wait -PassThru
+    $intel = Start-Process -FilePath $DDUExe.FullName -ArgumentList '-silent','-cleanintel' -Wait -PassThru
     Write-Host "    [-] DDU Intel exit code: $($intel.ExitCode)"
     if ($intel.ExitCode -ne 0) { throw "DDU Intel purge failed with exit code $($intel.ExitCode)." }
 

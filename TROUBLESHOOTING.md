@@ -65,6 +65,18 @@ The `bcdedit` safeboot flag was set during Phase 1, but Phase 2 (which removes t
 
 **Resolution:** All three phases now refuse to start under WOW64 with an actionable message, and resolve `bcdedit` by absolute path under `$env:WINDIR` rather than relying on `$env:PATH`. Launch **Windows PowerShell**, not **Windows PowerShell (x86)**, as Administrator.
 
+### Issue: DDU opens its GUI instead of running silently, and Phase 2 hangs
+**Audit Finding:** Phase 2 reached Safe Mode, printed `[-] Evicting NVIDIA driver allocations...`, and then stopped. DDU's window appeared on screen and the script waited on it indefinitely. Escaping required a manual restart and `msconfig`.
+**Root Cause:** The invocation used `-nvidiaspecific`, `-intelspecific` and `-cleannorestart`. None of those are DDU parameters. Extracting the literal strings from `Display Driver Uninstaller.exe` gives the real set:
+
+```
+-silent  -cleannvidia  -cleanintel  -cleanamd  -cleanallgpus  -cleancomplete
+-restart -shutdown  -removephysx  -removenvcp  -removemonitors  ...
+```
+
+Given unrecognised arguments, DDU falls back to interactive mode. Combined with `Start-Process -Wait`, that blocks the script forever. These argument names had been wrong since 0.1.0 - a linter cannot check the argument vocabulary of a third-party binary, so CI never had a chance of catching it.
+**Resolution:** Use `-silent -cleannvidia` and `-silent -cleanintel`. Restart is opt-in via `-restart`, so omitting it leaves reboot control with the script.
+
 ### Error: `DDU NVIDIA purge failed with exit code .`
 **Audit Finding:** Phase 2 aborted immediately with an empty exit code - not a number. The purge had in fact succeeded: the NVIDIA driver was gone afterwards.
 **Root Cause:** DDU is a GUI application (PE subsystem 2). PowerShell's call operator does not wait for GUI processes and never sets `$LASTEXITCODE`, so `& $DDUExe ...` returned instantly against a null value. The reported failure was false, and the real hazard was worse: had the assertion not thrown, the script would have continued to `bcdedit` and rebooted the machine while DDU was still purging drivers in the background.
