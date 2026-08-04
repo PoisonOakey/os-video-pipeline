@@ -88,14 +88,15 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 ## 📊 Status
 
-The original display fix on 2026-07-03 was performed manually; this code was written retroactively and, until 2026-08-03, had **never been executed**. Running it surfaced six defects that static analysis could not reach — see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+The original display fix on 2026-07-03 was performed manually; this code was written retroactively and, until 2026-08-03, had **never been executed**. Running it surfaced a series of defects that static analysis could not reach — every one is documented with its root cause in [TROUBLESHOOTING.md](TROUBLESHOOTING.md). Three of them were identifiers that had never been valid: a command name, a cmdlet parameter, and a set of arguments to a third-party binary. All shipped through green CI across two releases.
 
 | Path | State |
 |---|---|
 | Stage 1 — uninstall, boot-flag set, adapter isolation, reboot to Safe Mode | **Verified on hardware** 2026-08-03 |
 | Stage 3 — adapter restore, DNS gate, DisplayLink install | **Verified on hardware** 2026-08-04. Installed Graphics `12.2.2412.0` and Manager `3.2.14.0`; monitor confirmed working |
-| Stage 2 — DDU purge | **Partially exercised.** The NVIDIA purge completed and removed the driver; the script then aborted on a false failure before reaching the Intel step. Fixed, not yet re-run |
-| Tier 1 branch — skipping the purge entirely | **Not yet executed.** Added after the hardware run |
+| Tier 1 — decline the purge, reinstall only | **Verified on hardware** 2026-08-04. Ran end to end without touching boot configuration or networking; monitor restored |
+| Transcript logging | **Verified on hardware** 2026-08-04. Status lines now appear in `C:\DDU\Phase*_Log*.txt`; they were absent under `Write-Information` |
+| Stage 2 — DDU purge | **Not completed.** Attempted twice on hardware and failed both times, for two unrelated reasons: a GUI process that never set `$LASTEXITCODE`, then invalid DDU arguments that dropped it into interactive mode. Both fixed; a third attempt has not been made. DDU's real exit codes remain unobserved, so the zero-means-success check in Phase 2 is still an assumption |
 
 **Clean Rebuild:** Stage 1 prompts (`y/N`, defaulting to No) to uninstall the DisplayLink packages, and Stage 3 reinstalls them. This exists because Stage 3's `Install-IfMissing` check tests only for *presence* — a corrupted-but-installed DisplayLink, the exact fault this pipeline targets, would otherwise be skipped over. On the verified run this also delivered a version bump from `12.2.2204.0` to `12.2.2412.0`, which a presence check alone would have skipped.
 

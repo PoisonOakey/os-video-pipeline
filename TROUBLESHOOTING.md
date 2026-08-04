@@ -87,6 +87,11 @@ Given unrecognised arguments, DDU falls back to interactive mode. Combined with 
 **Root Cause:** `-Physical` exists only on `Get-NetAdapter`. Neither `Enable-NetAdapter` nor `Disable-NetAdapter` accepts it, confirmed against cmdlet metadata. Since the original Phase 1 used `Disable-NetAdapter -Physical`, the pipeline could never have completed even before any v1.2.0 changes.
 **Resolution:** Both cmdlets now take pipeline input from `Get-NetAdapter -Physical`. Note that PSScriptAnalyzer does not validate parameter names against cmdlet definitions, which is why this passed CI for two releases.
 
+### Error: `No package found matching input criteria` on the DisplayLink driver
+**Audit Finding:** Phase 3 targeted the winget package `Synaptics.DisplayLink`, which does not exist. The install would have failed on every run.
+**Root Cause:** The package ID was assumed rather than checked. Verified against live winget on 2026-07-30: `winget show -e --id Synaptics.DisplayLink` returns "No package found matching input criteria." The real package is `DisplayLink.GraphicsDriver`, published by DisplayLink Corp. The Microsoft Store ID `9N09F8V8FS02` was correct.
+**Resolution:** Phase 3 uses `DisplayLink.GraphicsDriver`. Package IDs are external contracts and cost seconds to verify with `winget show` - do that rather than assume, and record the date the check was made.
+
 ### Error: `Argument name was not recognized: '--quiet'`
 **Audit Finding:** Phase 3 would fail to install DisplayLink drivers. `winget` would return an error about an unrecognized argument.
 **Root Cause:** `--quiet` is not a valid flag for the `winget install` command.
